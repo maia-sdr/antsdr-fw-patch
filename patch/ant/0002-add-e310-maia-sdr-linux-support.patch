@@ -1,0 +1,74 @@
+From 227e20daf824f255a40c2e564152af3908af994b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Daniel=20Est=C3=A9vez?= <daniel@destevez.net>
+Date: Fri, 17 Nov 2023 20:00:00 +0100
+Subject: [PATCH 2/2] add e310 maia sdr linux support
+
+---
+ arch/arm/boot/dts/zynq-ant.dtsi | 38 +++++++++++++++++++++++++++++++--
+ 1 file changed, 36 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/zynq-ant.dtsi b/arch/arm/boot/dts/zynq-ant.dtsi
+index 7832e892a9dd..286477dabf81 100644
+--- a/arch/arm/boot/dts/zynq-ant.dtsi
++++ b/arch/arm/boot/dts/zynq-ant.dtsi
+@@ -43,9 +43,36 @@ usb_phy0: phy0 {
+ 		drv-vbus;
+ 	};
+ 
++        reserved-memory {
++                #address-cells = <1>;
++                #size-cells = <1>;
++                ranges;
++
++                maia_sdr_spectrometer: maia_sdr_spectrometer@1a000000 {
++                        no-map;
++                        reg = <0x1a000000 0x40000>;
++                        label = "maia_sdr_spectrometer";
++                };
++
++                maia_sdr_recording: maia_sdr_recording@01000000 {
++                        no-map;
++                        reg = <0x01000000 0x19000000>;
++                        label = "maia_sdr_recording";
++                };
++        };
++
++        maia-sdr-recording {
++                compatible = "maia-sdr,recording";
++                memory-region = <&maia_sdr_recording>;
++        };
++
++        maia-sdr-spectrometer {
++                compatible = "maia-sdr,rxbuffer";
++                memory-region = <&maia_sdr_spectrometer>;
++                buffer-size = <0x8000>;
++        };
+ };
+ 
+-
+ &sdhci0 {
+ 	status = "okay";
+ 	xlnx,has-cd = <0x0>;
+@@ -180,6 +207,14 @@ dma-channel@0 {
+ 			};
+ 		};
+ 
++                maia_sdr: maia-sdr@7C440000 {
++                        compatible = "uio_pdrv_genirq";
++                        reg = <0x7c440000 0x1000>;
++                        clocks = <&clkc 15>;
++                        interrupt-parent = <&intc>;
++                        interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
++                };
++
+ 		cf_ad9364_adc_core_0: cf-ad9361-lpc@79020000 {
+ 			compatible = "adi,axi-ad9361-6.00.a";
+ 			reg = <0x79020000 0x6000>;
+@@ -497,4 +532,3 @@ adi_tx_band_setting_1 {
+ 		};
+ 	};
+ };
+-
+-- 
+2.42.1
+

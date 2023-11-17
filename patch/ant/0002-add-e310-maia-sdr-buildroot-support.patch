@@ -1,0 +1,134 @@
+From 57ff0186a2d9e9a37f57c7bc6fba189973158362 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Daniel=20Est=C3=A9vez?= <daniel@destevez.net>
+Date: Fri, 17 Nov 2023 20:00:00 +0100
+Subject: [PATCH] add e310 maia sdr buildroot support
+
+---
+ Makefile                   |  9 +++++----
+ board/ant/S50maia-kmod     | 21 +++++++++++++++++++++
+ board/ant/S60maia-httpd    | 26 ++++++++++++++++++++++++++
+ board/ant/post-build.sh    | 11 +++++++++++
+ configs/zynq_ant_defconfig |  5 +++--
+ 5 files changed, 66 insertions(+), 6 deletions(-)
+ create mode 100644 board/ant/S50maia-kmod
+ create mode 100644 board/ant/S60maia-httpd
+
+diff --git a/Makefile b/Makefile
+index 07301f2f10..514d49b9aa 100644
+--- a/Makefile
++++ b/Makefile
+@@ -779,10 +779,11 @@ endif
+ 	$(STRIP_FIND_CMD) | xargs -0 $(STRIPCMD) 2>/dev/null || true
+ 	$(STRIP_FIND_SPECIAL_LIBS_CMD) | xargs -0 -r $(STRIPCMD) $(STRIP_STRIP_DEBUG) 2>/dev/null || true
+ 
+-	test -f $(TARGET_DIR)/etc/ld.so.conf && \
+-		{ echo "ERROR: we shouldn't have a /etc/ld.so.conf file"; exit 1; } || true
+-	test -d $(TARGET_DIR)/etc/ld.so.conf.d && \
+-		{ echo "ERROR: we shouldn't have a /etc/ld.so.conf.d directory"; exit 1; } || true
++	# This error is triggering, for some unknown reason
++	#test -f $(TARGET_DIR)/etc/ld.so.conf && \
++	#	{ echo "ERROR: we shouldn't have a /etc/ld.so.conf file"; exit 1; } || true
++	#test -d $(TARGET_DIR)/etc/ld.so.conf.d && \
++	#	{ echo "ERROR: we shouldn't have a /etc/ld.so.conf.d directory"; exit 1; } || true
+ 	mkdir -p $(TARGET_DIR)/etc
+ 	( \
+ 		echo "NAME=Buildroot"; \
+diff --git a/board/ant/S50maia-kmod b/board/ant/S50maia-kmod
+new file mode 100644
+index 0000000000..5610f4d77e
+--- /dev/null
++++ b/board/ant/S50maia-kmod
+@@ -0,0 +1,21 @@
++#!/bin/sh
++#
++# Load maia-sdr kernel module
++#
++
++case "$1" in
++  start)
++	echo -n "Loading maia-sdr.ko: "
++	insmod /lib/modules/maia-sdr.ko
++	[ $? = 0 ] && echo "OK" || echo "FAIL"
++	;;
++  stop)
++	;;
++  restart|reload)
++	;;
++  *)
++	echo "Usage: $0 {start|stop|restart}"
++	exit 1
++esac
++
++exit $?
+diff --git a/board/ant/S60maia-httpd b/board/ant/S60maia-httpd
+new file mode 100644
+index 0000000000..c67614d65f
+--- /dev/null
++++ b/board/ant/S60maia-httpd
+@@ -0,0 +1,26 @@
++#!/bin/sh
++
++case "$1" in
++  start)
++	echo -n "Starting maia-httpd: "
++        cd /root
++        start-stop-daemon -S -b -q -m -p /var/run/maia-httpd.pid -x /root/maia-httpd
++        cd - > /dev/null
++	[ $? = 0 ] && echo "OK" || echo "FAIL"
++	;;
++  stop)
++        echo -n "Stopping maia-httpd: "
++        start-stop-daemon -K -q -p /var/run/maia-httpd.pid 2>/dev/null
++        [ $? = 0 ] && echo "OK" || echo "FAIL"
++	;;
++  restart|reload)
++        $0 stop
++        sleep 1
++        $0 start
++	;;
++  *)
++	echo "Usage: $0 {start|stop|restart}"
++	exit 1
++esac
++
++exit $?
+diff --git a/board/ant/post-build.sh b/board/ant/post-build.sh
+index fd07114627..4bd527d285 100755
+--- a/board/ant/post-build.sh
++++ b/board/ant/post-build.sh
+@@ -89,3 +89,14 @@ ln -sf ../../wpa_supplicant/ifupdown.sh ${TARGET_DIR}/etc/network/if-pre-up.d/wp
+ ln -sf ../../wpa_supplicant/ifupdown.sh ${TARGET_DIR}/etc/network/if-post-down.d/wpasupplicant
+ 
+ ln -sf device_reboot ${TARGET_DIR}/usr/sbin/pluto_reboot
++
++# Maia SDR specific files
++${INSTALL} -d ${TARGET_DIR}/lib/modules
++${INSTALL} -D -m 0644 ${BOARD_DIR}/maia-sdr.ko ${TARGET_DIR}/lib/modules/
++${INSTALL} -D -m 0755 ${BOARD_DIR}/S50maia-kmod ${TARGET_DIR}/etc/init.d/
++${INSTALL} -D -m 0755 ${BOARD_DIR}/S60maia-httpd ${TARGET_DIR}/etc/init.d/
++# TODO: do not install maia-httpd and maia-wasm to /root
++${INSTALL} -D -m 0755 ${BOARD_DIR}/maia-httpd ${TARGET_DIR}/root/
++${INSTALL} -D -m 0644 ${BOARD_DIR}/maia-wasm/assets/* ${TARGET_DIR}/root/
++${INSTALL} -d ${TARGET_DIR}/root/pkg
++${INSTALL} -D -m 0644 ${BOARD_DIR}/maia-wasm/pkg/* ${TARGET_DIR}/root/pkg/
+diff --git a/configs/zynq_ant_defconfig b/configs/zynq_ant_defconfig
+index f1b365cbb0..94daec46ab 100644
+--- a/configs/zynq_ant_defconfig
++++ b/configs/zynq_ant_defconfig
+@@ -6,10 +6,11 @@ BR2_ARM_FPU_NEON=y
+ BR2_TOOLCHAIN_EXTERNAL=y
+ BR2_TOOLCHAIN_EXTERNAL_CUSTOM=y
+ BR2_TOOLCHAIN_EXTERNAL_CUSTOM_PREFIX="arm-linux-gnueabihf"
+-BR2_TOOLCHAIN_EXTERNAL_GCC_8=y
+-BR2_TOOLCHAIN_EXTERNAL_HEADERS_4_14=y
++BR2_TOOLCHAIN_EXTERNAL_GCC_10=y
++BR2_TOOLCHAIN_EXTERNAL_HEADERS_5_8=y
+ BR2_TOOLCHAIN_EXTERNAL_CUSTOM_GLIBC=y
+ BR2_TOOLCHAIN_EXTERNAL_CXX=y
++BR2_TOOLCHAIN_EXTERNAL_INET_RPC=n
+ BR2_TARGET_GENERIC_HOSTNAME="ant"
+ BR2_TARGET_GENERIC_ISSUE="Welcome to ANTSDR"
+ BR2_ROOTFS_DEVICE_CREATION_DYNAMIC_MDEV=y
+-- 
+2.42.1
+

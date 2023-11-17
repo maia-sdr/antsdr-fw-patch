@@ -1,0 +1,88 @@
+From 6fa5df40d98b84581f3ff4861be0117628397055 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Daniel=20Est=C3=A9vez?= <daniel@destevez.net>
+Date: Fri, 17 Nov 2023 20:00:00 +0100
+Subject: [PATCH] add e200 maia sdr makefile support
+
+---
+ Makefile | 50 +++++++++++++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 45 insertions(+), 5 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 4a2eb80..86488c7 100644
+--- a/Makefile
++++ b/Makefile
+@@ -98,8 +98,6 @@ linux/arch/arm/boot/zImage:
+ 	make -C linux ARCH=arm zynq_$(TARGET)_defconfig
+ 	make -C linux -j $(NCORES) ARCH=arm CROSS_COMPILE=$(CROSS_COMPILE) uImage UIMAGE_LOADADDR=0x8000
+ 	make -C linux -j $(NCORES) ARCH=arm CROSS_COMPILE=$(CROSS_COMPILE) zImage UIMAGE_LOADADDR=0x8000
+-	
+-
+ 
+ .PHONY: linux/arch/arm/boot/zImage
+ .PHONY: linux/arch/arm/boot/uImage
+@@ -118,9 +116,51 @@ linux/arch/arm/boot/dts/%.dtb: linux/arch/arm/boot/dts/%.dts  linux/arch/arm/boo
+ build/%.dtb: linux/arch/arm/boot/dts/%.dtb | build
+ 	dtc -q -@ -I dtb -O dts $< | sed 's/axi {/amba {/g' | dtc -q -@ -I dts -O dtb -o $@
+ 
+-### Buildroot ###
++### maia-kmod ###
++../maia-sdr/maia-kmod/maia-sdr.ko:
++	make -C linux ARCH=arm CROSS_COMPILE=$(CROSS_COMPILE) modules_prepare
++	ARCH=arm CROSS_COMPILE=$(CROSS_COMPILE) KERNEL_SRC=../../plutosdr-fw/linux make -C ../maia-sdr/maia-kmod
++
++.PHONY: ../maia-sdr/maia-kmod/maia-sdr.ko
++
++buildroot/board/$(TARGET)/maia-sdr.ko: ../maia-sdr/maia-kmod/maia-sdr.ko | build
++	cp $< $@
++
++### maia-httpd ###
++../maia-sdr/maia-httpd/target/armv7-unknown-linux-gnueabihf/release/maia-httpd:
++	cd ../maia-sdr/maia-httpd && \
++		PATH="../../plutosdr-fw/buildroot/output/host/bin/":$(PATH) cargo build --release --target armv7-unknown-linux-gnueabihf \
++		--config target.armv7-unknown-linux-gnueabihf.linker=\"arm-linux-gnueabihf-gcc\"
++
++.PHONY: ../maia-sdr/maia-httpd/target/armv7-unknown-linux-gnueabihf/release/maia-httpd
++
++buildroot/board/$(TARGET)/maia-httpd: ../maia-sdr/maia-httpd/target/armv7-unknown-linux-gnueabihf/release/maia-httpd | build
++	cp $< $@
+ 
+-buildroot/output/images/rootfs.cpio.gz:
++### maia-wasm ###
++../maia-sdr/maia-wasm/pkg:
++	cd ../maia-sdr/maia-wasm && wasm-pack build --target web
++
++.PHONY: ../maia-sdr/maia-wasm/pkg
++
++buildroot/board/$(TARGET)/maia-wasm:
++	mkdir $@
++
++buildroot/board/$(TARGET)/maia-wasm/pkg: ../maia-sdr/maia-wasm/pkg | build buildroot/board/$(TARGET)/maia-wasm
++	cp -r $< buildroot/board/$(TARGET)/maia-wasm/
++
++buildroot/board/$(TARGET)/maia-wasm/assets: ../maia-sdr/maia-wasm/assets | build buildroot/board/$(TARGET)/maia-wasm
++	cp -r $< buildroot/board/$(TARGET)/maia-wasm/
++
++maia-wasm: buildroot/board/$(TARGET)/maia-wasm/pkg buildroot/board/$(TARGET)/maia-wasm/assets
++
++.PHONY: maia-wasm
++
++### Buildroot ###
++#
++# The first two lines are required because buildroots symlinks toolchain scripts
++# that use relative paths.
++buildroot/output/images/rootfs.cpio.gz: buildroot/board/$(TARGET)/maia-sdr.ko buildroot/board/$(TARGET)/maia-httpd maia-wasm
+ 	@echo device-fw $(VERSION)> $(CURDIR)/buildroot/board/$(TARGET)/VERSIONS
+ 	@$(foreach dir,$(VSUBDIRS),echo $(dir) $(shell cd $(dir) && git describe --abbrev=4 --dirty --always --tags) >> $(CURDIR)/buildroot/board/$(TARGET)/VERSIONS;)
+ 	make -C buildroot ARCH=arm zynq_$(TARGET)_defconfig
+@@ -206,7 +246,7 @@ sdimg: build/
+ 	cp build/rootfs.cpio.gz  		$(SDIMGDIR)/ramdisk.image.gz
+ 	mkimage -A arm -T ramdisk -C gzip -d $(SDIMGDIR)/ramdisk.image.gz $(SDIMGDIR)/uramdisk.image.gz
+ 	touch 	$(SDIMGDIR)/boot.bif
+-	echo "image : {[bootloader] $(SDIMGDIR)/fsbl.elf  $(SDIMGDIR)/system_top.bit  $(SDIMGDIR)/u-boot.elf}" >  $(SDIMGDIR)/boot.bif
++	echo "img : {[bootloader] $(SDIMGDIR)/fsbl.elf  $(SDIMGDIR)/system_top.bit  $(SDIMGDIR)/u-boot.elf}" >  $(SDIMGDIR)/boot.bif
+ 	bash -c "source $(VIVADO_SETTINGS) && bootgen -image $(SDIMGDIR)/boot.bif -o i $(SDIMGDIR)/BOOT.bin"
+ 	rm $(SDIMGDIR)/fsbl.elf
+ 	rm $(SDIMGDIR)/system_top.bit
+-- 
+2.42.1
+

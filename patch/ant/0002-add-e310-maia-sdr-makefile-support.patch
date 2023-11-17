@@ -1,0 +1,99 @@
+From 0a45e7ad18c19c157f9cc05782b9ae2c44115298 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Daniel=20Est=C3=A9vez?= <daniel@destevez.net>
+Date: Fri, 17 Nov 2023 20:00:00 +0100
+Subject: [PATCH] add e310 maia sdr makefile support
+
+---
+ Makefile    | 42 ++++++++++++++++++++++++++++++++++++++++--
+ buildroot   |  2 +-
+ hdl         |  2 +-
+ linux       |  2 +-
+ u-boot-xlnx |  2 +-
+ 5 files changed, 44 insertions(+), 6 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 223acba..6aa14a5 100644
+--- a/Makefile
++++ b/Makefile
+@@ -115,10 +115,48 @@ linux/arch/arm/boot/dts/%.dtb: linux/arch/arm/boot/dts/%.dts  linux/arch/arm/boo
+ 
+ build/%.dtb: linux/arch/arm/boot/dts/%.dtb | build
+ 	dtc -q -@ -I dtb -O dts $< | sed 's/axi {/amba {/g' | dtc -q -@ -I dts -O dtb -o $@
++### maia-kmod ###
++../maia-sdr/maia-kmod/maia-sdr.ko:
++	make -C linux ARCH=arm CROSS_COMPILE=$(CROSS_COMPILE) modules_prepare
++	ARCH=arm CROSS_COMPILE=$(CROSS_COMPILE) KERNEL_SRC=../../plutosdr-fw/linux make -C ../maia-sdr/maia-kmod
+ 
+-### Buildroot ###
++.PHONY: ../maia-sdr/maia-kmod/maia-sdr.ko
++
++buildroot/board/$(TARGET)/maia-sdr.ko: ../maia-sdr/maia-kmod/maia-sdr.ko | build
++	cp $< $@
++
++### maia-httpd ###
++../maia-sdr/maia-httpd/target/armv7-unknown-linux-gnueabihf/release/maia-httpd:
++	cd ../maia-sdr/maia-httpd && \
++		PATH="../../plutosdr-fw/buildroot/output/host/bin/":$(PATH) cargo build --release --target armv7-unknown-linux-gnueabihf \
++		--config target.armv7-unknown-linux-gnueabihf.linker=\"arm-linux-gnueabihf-gcc\"
++
++.PHONY: ../maia-sdr/maia-httpd/target/armv7-unknown-linux-gnueabihf/release/maia-httpd
++
++buildroot/board/$(TARGET)/maia-httpd: ../maia-sdr/maia-httpd/target/armv7-unknown-linux-gnueabihf/release/maia-httpd | build
++	cp $< $@
++
++### maia-wasm ###
++../maia-sdr/maia-wasm/pkg:
++	cd ../maia-sdr/maia-wasm && wasm-pack build --target web
+ 
+-buildroot/output/images/rootfs.cpio.gz:
++.PHONY: ../maia-sdr/maia-wasm/pkg
++
++buildroot/board/$(TARGET)/maia-wasm:
++	mkdir $@
++
++buildroot/board/$(TARGET)/maia-wasm/pkg: ../maia-sdr/maia-wasm/pkg | build buildroot/board/$(TARGET)/maia-wasm
++	cp -r $< buildroot/board/$(TARGET)/maia-wasm/
++
++buildroot/board/$(TARGET)/maia-wasm/assets: ../maia-sdr/maia-wasm/assets | build buildroot/board/$(TARGET)/maia-wasm
++	cp -r $< buildroot/board/$(TARGET)/maia-wasm/
++
++maia-wasm: buildroot/board/$(TARGET)/maia-wasm/pkg buildroot/board/$(TARGET)/maia-wasm/assets
++
++.PHONY: maia-wasm
++
++### Buildroot ###
++buildroot/output/images/rootfs.cpio.gz: buildroot/board/$(TARGET)/maia-sdr.ko buildroot/board/$(TARGET)/maia-httpd maia-wasm
+ 	@echo device-fw $(VERSION)> $(CURDIR)/buildroot/board/$(TARGET)/VERSIONS
+ 	@$(foreach dir,$(VSUBDIRS),echo $(dir) $(shell cd $(dir) && git describe --abbrev=4 --dirty --always --tags) >> $(CURDIR)/buildroot/board/$(TARGET)/VERSIONS;)
+ 	make -C buildroot ARCH=arm zynq_$(TARGET)_defconfig
+diff --git a/buildroot b/buildroot
+index a32f43f..57ff018 160000
+--- a/buildroot
++++ b/buildroot
+@@ -1 +1 @@
+-Subproject commit a32f43fc9671f1807859e4aa312ac6b6226a04ec
++Subproject commit 57ff0186a2d9e9a37f57c7bc6fba189973158362
+diff --git a/hdl b/hdl
+index b95765a..aa8e6a6 160000
+--- a/hdl
++++ b/hdl
+@@ -1 +1 @@
+-Subproject commit b95765a9ea8aaa7c64bd89e7d1ac2678d41a6222
++Subproject commit aa8e6a6adb37bef7eac005dd9fcf148bf78c441d
+diff --git a/linux b/linux
+index 53f2664..227e20d 160000
+--- a/linux
++++ b/linux
+@@ -1 +1 @@
+-Subproject commit 53f266460752694f47cd77e822191c6922dc6917
++Subproject commit 227e20daf824f255a40c2e564152af3908af994b
+diff --git a/u-boot-xlnx b/u-boot-xlnx
+index 54ac0bc..8710da0 160000
+--- a/u-boot-xlnx
++++ b/u-boot-xlnx
+@@ -1 +1 @@
+-Subproject commit 54ac0bcb62e0694eabff29ab650fa976c8237862
++Subproject commit 8710da0c3dc2c941aff2e3c9c2c15e242230d2ac
+-- 
+2.42.1
+
