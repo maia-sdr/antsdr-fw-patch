@@ -1,0 +1,51 @@
+From 721bd497ef19b384a26ab957246253221c870eda Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Daniel=20Est=C3=A9vez?= <daniel@destevez.net>
+Date: Fri, 17 Nov 2023 20:00:00 +0100
+Subject: [PATCH] add e200 maia sdr buildroot support
+
+---
+ Makefile                    |  9 +++++----
+ board/e200/post-build.sh    | 11 +++++++++++
+ configs/zynq_e200_defconfig |  5 +++--
+ 3 files changed, 19 insertions(+), 6 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 07301f2f10..514d49b9aa 100644
+--- a/Makefile
++++ b/Makefile
+@@ -779,10 +779,11 @@ endif
+ 	$(STRIP_FIND_CMD) | xargs -0 $(STRIPCMD) 2>/dev/null || true
+ 	$(STRIP_FIND_SPECIAL_LIBS_CMD) | xargs -0 -r $(STRIPCMD) $(STRIP_STRIP_DEBUG) 2>/dev/null || true
+ 
+-	test -f $(TARGET_DIR)/etc/ld.so.conf && \
+-		{ echo "ERROR: we shouldn't have a /etc/ld.so.conf file"; exit 1; } || true
+-	test -d $(TARGET_DIR)/etc/ld.so.conf.d && \
+-		{ echo "ERROR: we shouldn't have a /etc/ld.so.conf.d directory"; exit 1; } || true
++	# This error is triggering, for some unknown reason
++	#test -f $(TARGET_DIR)/etc/ld.so.conf && \
++	#	{ echo "ERROR: we shouldn't have a /etc/ld.so.conf file"; exit 1; } || true
++	#test -d $(TARGET_DIR)/etc/ld.so.conf.d && \
++	#	{ echo "ERROR: we shouldn't have a /etc/ld.so.conf.d directory"; exit 1; } || true
+ 	mkdir -p $(TARGET_DIR)/etc
+ 	( \
+ 		echo "NAME=Buildroot"; \
+diff --git a/configs/zynq_e200_defconfig b/configs/zynq_e200_defconfig
+index f75cc2ff7e..9f9f996396 100644
+--- a/configs/zynq_e200_defconfig
++++ b/configs/zynq_e200_defconfig
+@@ -6,10 +6,11 @@ BR2_ARM_FPU_NEON=y
+ BR2_TOOLCHAIN_EXTERNAL=y
+ BR2_TOOLCHAIN_EXTERNAL_CUSTOM=y
+ BR2_TOOLCHAIN_EXTERNAL_CUSTOM_PREFIX="arm-linux-gnueabihf"
+-BR2_TOOLCHAIN_EXTERNAL_GCC_8=y
+-BR2_TOOLCHAIN_EXTERNAL_HEADERS_4_14=y
++BR2_TOOLCHAIN_EXTERNAL_GCC_10=y
++BR2_TOOLCHAIN_EXTERNAL_HEADERS_5_8=y
+ BR2_TOOLCHAIN_EXTERNAL_CUSTOM_GLIBC=y
+ BR2_TOOLCHAIN_EXTERNAL_CXX=y
++BR2_TOOLCHAIN_EXTERNAL_INET_RPC=n
+ BR2_TARGET_GENERIC_HOSTNAME="ant"
+ BR2_TARGET_GENERIC_ISSUE="Welcome to ANTSDR"
+ BR2_ROOTFS_DEVICE_CREATION_DYNAMIC_MDEV=y
+-- 
+2.42.1

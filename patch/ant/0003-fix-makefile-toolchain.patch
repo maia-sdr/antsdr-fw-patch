@@ -1,0 +1,24 @@
+From 6fa5df40d98b84581f3ff4861be0117628397055 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Daniel=20Est=C3=A9vez?= <daniel@destevez.net>
+Date: Fri, 17 Nov 2023 20:00:00 +0100
+Subject: [PATCH] add e200 maia sdr makefile support
+
+---
+ Makefile | 50 +++++++++++++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 45 insertions(+), 5 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 4a2eb80..86488c7 100644
+--- a/Makefile
++++ b/Makefile
+@@ -206,7 +246,7 @@ sdimg: build/
+ 	cp build/rootfs.cpio.gz  		$(SDIMGDIR)/ramdisk.image.gz
+ 	mkimage -A arm -T ramdisk -C gzip -d $(SDIMGDIR)/ramdisk.image.gz $(SDIMGDIR)/uramdisk.image.gz
+ 	touch 	$(SDIMGDIR)/boot.bif
+-	echo "image : {[bootloader] $(SDIMGDIR)/fsbl.elf  $(SDIMGDIR)/system_top.bit  $(SDIMGDIR)/u-boot.elf}" >  $(SDIMGDIR)/boot.bif
++	echo "img : {[bootloader] $(SDIMGDIR)/fsbl.elf  $(SDIMGDIR)/system_top.bit  $(SDIMGDIR)/u-boot.elf}" >  $(SDIMGDIR)/boot.bif
+ 	bash -c "source $(VIVADO_SETTINGS) && bootgen -image $(SDIMGDIR)/boot.bif -o i $(SDIMGDIR)/BOOT.bin"
+ 	rm $(SDIMGDIR)/fsbl.elf
+ 	rm $(SDIMGDIR)/system_top.bit
+-- 
+2.42.1
