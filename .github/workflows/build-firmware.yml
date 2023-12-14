@@ -1,0 +1,71 @@
+name: 'build-firmware'
+on:
+  push:
+    branches:
+      - v0.38-maia-sdr-ci
+    tags:
+      - '*'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        target: [ant, e200]
+    name: Build AntSDR firmware
+    runs-on: [self-hosted, vivado]
+    container:
+      image: ghcr.io/maia-sdr/maia-sdr-devel:latest
+      volumes:
+        - vivado2022_2:/opt/Xilinx
+      options: --user root
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+    - name: Build firmware
+      # xsct, which is run by the make process, uses Xvfb, which usually needs a
+      # connection to an X server (even though it is a CLI application). We run
+      # Xvfb in the container to create a "fake" X session that makes xsct
+      # happy.
+      #
+      # We cannot '.' the main settings.sh file for Vivado, because it uses
+      # 'source' to run the sub-files, and we are not using bash. Instead, we
+      # '.' each individual sub-file.
+      run: |
+        set -e
+        . /opt/Xilinx/Vitis/2022.2/.settings64-Vitis.sh
+        . /opt/Xilinx/Vivado/2022.2/.settings64-Vivado.sh
+        . /opt/Xilinx/Vitis_HLS/2022.2/.settings64-Vitis_HLS.sh
+        . /opt/rust/env
+        export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin/:/usr/bin:/sbin:/bin:/opt/gcc-arm-linux-gnueabi/bin:$PATH:/opt/oss-cad-suite/bin
+        export PYTHONPATH=/usr/local/lib/python3.10/dist-packages
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y xvfb
+        Xvfb :10 &
+        export DISPLAY=:10
+        export ADI_IGNORE_VERSION_CHECK=1
+        export TARGET=${{matrix.target}}
+        sh patch.sh $TARGET
+        make -C plutosdr-fw
+        make -C plutosdr-fw sdimg
+    - name: Upload QSPI artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: maia-sdr-${{matrix.target}}-qspi
+        path: |
+          plutosdr-fw/build/antsdr-fw-*.zip
+          plutosdr-fw/build/antsdr-jtag-bootstrap-*.zip
+          plutosdr-fw/build/system_top.xsa
+        if-no-files-found: error
+    - name: Upload SD card artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: maia-sdr-${{matrix.target}}-sdcard
+        path: |
+          plutosdr-fw/build_sdimg/*
+        if-no-files-found: error
+    # The working directory in the self-hosted runner needs be cleaned before
+    # building. We use if: ${{ always() }} to clean even if the build fails.
+    - name: Clean up runner working dir
+      uses: TooMuch4U/actions-clean@v2.1
+      if: ${{ always() }}
