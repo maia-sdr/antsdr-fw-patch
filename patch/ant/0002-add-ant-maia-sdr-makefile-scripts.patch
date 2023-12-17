@@ -1,0 +1,68 @@
+From 306d274c260bdec168f3514d2125597bcbef2ac0 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Daniel=20Est=C3=A9vez?= <daniel@destevez.net>
+Date: Thu, 14 Dec 2023 18:00:00 +0100
+Subject: [PATCH] add ant maia sdr makefile support
+
+---
+ Makefile | 43 ++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 42 insertions(+), 1 deletion(-)
+
+diff --git a/Makefile b/Makefile
+index 12e7045..0d68db3 100644
+--- a/Makefile
++++ b/Makefile
+@@ -113,9 +113,50 @@ linux/arch/arm/boot/dts/%.dtb: TOOLCHAIN linux/arch/arm/boot/dts/%.dts  linux/ar
+ build/%.dtb: linux/arch/arm/boot/dts/%.dtb | build
+ 	dtc -q -@ -I dtb -O dts $< | sed 's/axi {/amba {/g' | dtc -q -@ -I dts -O dtb -o $@
+ 
++### maia-kmod ###
++../maia-sdr/maia-kmod/maia-sdr.ko:
++	$(TOOLS_PATH) make -C linux ARCH=arm CROSS_COMPILE=$(CROSS_COMPILE) modules_prepare
++	$(TOOLS_PATH) make -C ../maia-sdr/maia-kmod ARCH=arm CROSS_COMPILE=$(CROSS_COMPILE) KERNEL_SRC=../../plutosdr-fw/linux
++
++.PHONY: ../maia-sdr/maia-kmod/maia-sdr.ko
++
++buildroot/board/$(TARGET)/maia-sdr.ko: ../maia-sdr/maia-kmod/maia-sdr.ko | build
++	cp $< $@
++
++### maia-httpd ###
++../maia-sdr/maia-httpd/target/armv7-unknown-linux-gnueabihf/release/maia-httpd:
++	cd ../maia-sdr/maia-httpd && \
++		$(TOOLS_PATH) cargo build --release --target armv7-unknown-linux-gnueabihf \
++		--config target.armv7-unknown-linux-gnueabihf.linker=\"arm-linux-gnueabihf-gcc\"
++
++.PHONY: ../maia-sdr/maia-httpd/target/armv7-unknown-linux-gnueabihf/release/maia-httpd
++
++buildroot/board/$(TARGET)/maia-httpd: ../maia-sdr/maia-httpd/target/armv7-unknown-linux-gnueabihf/release/maia-httpd | build
++	cp $< $@
++
++### maia-wasm ###
++../maia-sdr/maia-wasm/pkg:
++	cd ../maia-sdr/maia-wasm && wasm-pack build --target web
++
++.PHONY: ../maia-sdr/maia-wasm/pkg
++
++buildroot/board/$(TARGET)/maia-wasm:
++	mkdir $@
++
++buildroot/board/$(TARGET)/maia-wasm/pkg: ../maia-sdr/maia-wasm/pkg | build buildroot/board/$(TARGET)/maia-wasm
++	cp -r $< buildroot/board/$(TARGET)/maia-wasm/
++
++buildroot/board/$(TARGET)/maia-wasm/assets: ../maia-sdr/maia-wasm/assets | build buildroot/board/$(TARGET)/maia-wasm
++	cp -r $< buildroot/board/$(TARGET)/maia-wasm/
++
++maia-wasm: buildroot/board/$(TARGET)/maia-wasm/pkg buildroot/board/$(TARGET)/maia-wasm/assets
++
++.PHONY: maia-wasm
++
++
+ ### Buildroot ###
+ 
+-buildroot/output/images/rootfs.cpio.gz:
++buildroot/output/images/rootfs.cpio.gz: buildroot/board/$(TARGET)/maia-sdr.ko buildroot/board/$(TARGET)/maia-httpd maia-wasm
+ 	@echo device-fw $(VERSION)> $(CURDIR)/buildroot/board/$(TARGET)/VERSIONS
+ 	@$(foreach dir,$(VSUBDIRS),echo $(dir) $(shell cd $(dir) && git describe --abbrev=4 --dirty --always --tags) >> $(CURDIR)/buildroot/board/$(TARGET)/VERSIONS;)
+ 	make -C buildroot ARCH=arm zynq_$(TARGET)_defconfig
+-- 
+2.43.0
+

@@ -2,3 +2,6 @@
 	path = plutosdr-fw
 	url = https://github.com/analogdevicesinc/plutosdr-fw
 	branch = "v0.38"
+[submodule "maia-sdr"]
+	path = maia-sdr
+	url = https://github.com/maia-sdr/maia-sdr

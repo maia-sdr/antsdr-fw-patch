@@ -1,0 +1,75 @@
+From 1c5767f323f4c1831a8fc4058d9ef3ff44a8590b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Daniel=20Est=C3=A9vez?= <daniel@destevez.net>
+Date: Thu, 14 Dec 2023 18:00:00 +0100
+Subject: [PATCH] add e200 maia sdr linux support
+
+---
+ arch/arm/boot/dts/zynq-e200.dtsi | 38 ++++++++++++++++++++++++++++++++
+ 1 file changed, 38 insertions(+)
+
+diff --git a/arch/arm/boot/dts/zynq-e200.dtsi b/arch/arm/boot/dts/zynq-e200.dtsi
+index f123605e5d90..daadc6e955ff 100644
+--- a/arch/arm/boot/dts/zynq-e200.dtsi
++++ b/arch/arm/boot/dts/zynq-e200.dtsi
+@@ -2,6 +2,7 @@
+  * ZYNQ Pluto SDR (Z7020/AD936x)
+  *
+  * Copyright (C) 2021 MicroPhase Inc.
++ * Copyright (C) 2022-2023 Daniel Estevez <daniel@destevez.net>
+  *
+  * Licensed under the GPL-2.
+  */
+@@ -51,6 +52,35 @@ usb_phy0: phy0 {
+ 	mp5660 {
+ 		compatible = "microphase,ad5660";
+ 	};
++
++	reserved-memory {
++		#address-cells = <1>;
++		#size-cells = <1>;
++		ranges;
++
++		maia_sdr_spectrometer: maia_sdr_spectrometer@1a000000 {
++			no-map;
++			reg = <0x1a000000 0x40000>;
++			label = "maia_sdr_spectrometer";
++		};
++
++		maia_sdr_recording: maia_sdr_recording@01000000 {
++			no-map;
++			reg = <0x01000000 0x19000000>;
++			label = "maia_sdr_recording";
++		};
++	};
++
++	maia-sdr-recording {
++		compatible = "maia-sdr,recording";
++		memory-region = <&maia_sdr_recording>;
++	};
++
++	maia-sdr-spectrometer {
++		compatible = "maia-sdr,rxbuffer";
++		memory-region = <&maia_sdr_spectrometer>;
++		buffer-size = <0x8000>;
++	};
+ };
+ 
+ &sdhci0 {
+@@ -181,6 +211,14 @@ dma-channel@0 {
+ 			};
+ 		};
+ 
++		maia_sdr: maia-sdr@7C460000 {
++			compatible = "uio_pdrv_genirq";
++			reg = <0x7c460000 0x1000>;
++			clocks = <&clkc 15>;
++			interrupt-parent = <&intc>;
++			interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
++		};
++
+ 		cf_ad9364_adc_core_0: cf-ad9361-lpc@79020000 {
+ 			compatible = "adi,axi-ad9361-6.00.a";
+ 			reg = <0x79020000 0x6000>;
+-- 
+2.43.0
+

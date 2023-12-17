@@ -1,0 +1,50 @@
+From cdf73d3ab62da6bcdc94a0737278fc4618f53389 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Daniel=20Est=C3=A9vez?= <daniel@destevez.net>
+Date: Sat, 16 Dec 2023 20:35:10 +0100
+Subject: [PATCH] add ant maia sdr uboot
+
+---
+ include/configs/zynq-common.h | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/include/configs/zynq-common.h b/include/configs/zynq-common.h
+index 3caaaecdba..b44bb23b79 100644
+--- a/include/configs/zynq-common.h
++++ b/include/configs/zynq-common.h
+@@ -332,14 +332,14 @@
+ 		"if run adi_loadvals; then " \
+ 		"echo Loaded AD936x refclk frequency and model into devicetree; " \
+ 		"fi; " \
+-		"envversion;setenv bootargs console=ttyPS0,115200 maxcpus=${maxcpus} rootfstype=ramfs root=/dev/ram0 rw earlyprintk clk_ignore_unused uboot=\"${uboot-version}\" && " \
++		"envversion;setenv bootargs console=ttyPS0,115200 maxcpus=${maxcpus} rootfstype=ramfs root=/dev/ram0 rw earlyprintk clk_ignore_unused uio_pdrv_genirq.of_id=uio_pdrv_genirq uboot=\"${uboot-version}\" && " \
+ 		"bootm ${fit_load_address}#${fit_config}\0" \
+ 	"qspiboot_verbose=adi_hwref;echo Copying Linux from QSPI flash to RAM... && " \
+ 		"run read_sf && " \
+ 		"if run adi_loadvals; then " \
+ 		"echo Loaded AD936x refclk frequency and model into devicetree; " \
+ 		"fi; " \
+-		"envversion;setenv bootargs console=ttyPS0,115200 maxcpus=${maxcpus} rootfstype=ramfs root=/dev/ram0 rw earlyprintk clk_ignore_unused uboot=\"${uboot-version}\" && " \
++		"envversion;setenv bootargs console=ttyPS0,115200 maxcpus=${maxcpus} rootfstype=ramfs root=/dev/ram0 rw earlyprintk clk_ignore_unused uio_pdrv_genirq.of_id=uio_pdrv_genirq  uboot=\"${uboot-version}\" && " \
+ 		"bootm ${fit_load_address}#${fit_config} || echo BOOT failed entering DFU mode ... && run dfu_sf \0" \
+ 	"qspiboot=set stdout nulldev;adi_hwref;test -n $PlutoRevA || gpio input 14 && set stdout serial@e0001000 && sf probe && sf protect lock 0 100000 && run dfu_sf;  " \
+ 		"set stdout serial@e0001000;" \
+@@ -349,7 +349,7 @@
+ 		"itest *f8000258 == 480002 && run clear_reset_cause && exit; " \
+ 		"echo Booting silently && set stdout nulldev; " \
+ 		"run read_sf && run adi_loadvals; " \
+-		"envversion;setenv bootargs console=ttyPS0,115200 maxcpus=${maxcpus} rootfstype=ramfs root=/dev/ram0 rw quiet loglevel=4 clk_ignore_unused uboot=\"${uboot-version}\" && " \
++		"envversion;setenv bootargs console=ttyPS0,115200 maxcpus=${maxcpus} rootfstype=ramfs root=/dev/ram0 rw quiet loglevel=4 clk_ignore_unused uio_pdrv_genirq.of_id=uio_pdrv_genirq  uboot=\"${uboot-version}\" && " \
+ 		"bootm ${fit_load_address}#${fit_config} || set stdout serial@e0001000;echo BOOT failed entering DFU mode ... && sf protect lock 0 100000 && run dfu_sf \0" \
+ 	"jtagboot=env default -a;sf probe && sf protect unlock 0 100000 && run dfu_sf; \0" \
+ 	"uenvboot=" \
+@@ -372,6 +372,7 @@
+ 			"load mmc 0 ${fit_load_address} ${kernel_image} && " \
+ 			"load mmc 0 ${devicetree_load_address} ${devicetree_image} && " \
+ 			"load mmc 0 ${ramdisk_load_address} ${ramdisk_image} && " \
++			"setenv bootargs console=ttyPS0,115200 maxcpus=${maxcpus} rootfstype=ramfs root=/dev/ram0 rw earlyprintk clk_ignore_unused uio_pdrv_genirq.of_id=uio_pdrv_genirq uboot=\"${uboot-version}\" && " \
+ 			"bootm ${fit_load_address} ${ramdisk_load_address} ${devicetree_load_address}; " \
+ 		"fi\0" \
+ 	"usbboot=if usb start; then " \
+-- 
+2.43.0
+

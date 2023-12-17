@@ -1,0 +1,71 @@
+From 1c5767f323f4c1831a8fc4058d9ef3ff44a8590b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Daniel=20Est=C3=A9vez?= <daniel@destevez.net>
+Date: Thu, 14 Dec 2023 18:00:00 +0100
+Subject: [PATCH] add ant maia sdr linux support
+
+---
+ arch/arm/boot/dts/zynq-ant.dtsi | 37 ++++++++++++++++++++++++++++++++-
+ 1 file changed, 36 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/zynq-ant.dtsi b/arch/arm/boot/dts/zynq-ant.dtsi
+index 279c4590aacc..327850924a16 100644
+--- a/arch/arm/boot/dts/zynq-ant.dtsi
++++ b/arch/arm/boot/dts/zynq-ant.dtsi
+@@ -43,6 +43,34 @@ usb_phy0: phy0 {
+ 		drv-vbus;
+ 	};
+ 
++	reserved-memory {
++		#address-cells = <1>;
++		#size-cells = <1>;
++		ranges;
++
++		maia_sdr_spectrometer: maia_sdr_spectrometer@1a000000 {
++			no-map;
++			reg = <0x1a000000 0x40000>;
++			label = "maia_sdr_spectrometer";
++		};
++
++		maia_sdr_recording: maia_sdr_recording@01000000 {
++			no-map;
++			reg = <0x01000000 0x19000000>;
++			label = "maia_sdr_recording";
++		};
++	};
++
++	maia-sdr-recording {
++		compatible = "maia-sdr,recording";
++		memory-region = <&maia_sdr_recording>;
++	};
++
++	maia-sdr-spectrometer {
++		compatible = "maia-sdr,rxbuffer";
++		memory-region = <&maia_sdr_spectrometer>;
++		buffer-size = <0x8000>;
++	};
+ };
+ 
+ 
+@@ -180,6 +208,14 @@ dma-channel@0 {
+ 			};
+ 		};
+ 
++               maia_sdr: maia-sdr@7C460000 {
++			compatible = "uio_pdrv_genirq";
++			reg = <0x7c460000 0x1000>;
++			clocks = <&clkc 15>;
++			interrupt-parent = <&intc>;
++			interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
++		};
++
+ 		cf_ad9364_adc_core_0: cf-ad9361-lpc@79020000 {
+ 			compatible = "adi,axi-ad9361-6.00.a";
+ 			reg = <0x79020000 0x6000>;
+@@ -497,4 +533,3 @@ adi_tx_band_setting_1 {
+ 		};
+ 	};
+ };
+-
+-- 
+2.43.0
+
